@@ -1,12 +1,10 @@
 import React, { useState, useEffect } from 'react';
 import { Jumbotron, Container, Col, Form, Button, Card, CardColumns } from 'react-bootstrap';
-
+import { useMutation } from '@apollo/client';
+import { SAVE_BOOK } from '../utils/mutations';
 import Auth from '../utils/auth';
 import { searchGoogleBooks } from '../utils/API';
 import { saveBookIds, getSavedBookIds } from '../utils/localStorage';
-import { SAVE_BOOK } from '../utils/mutations'
-import { GET_ME } from '../utils/queries'
-import { useMutation } from '@apollo/client'
 
 const SearchBooks = () => {
   // create state for holding returned google api data
@@ -16,8 +14,7 @@ const SearchBooks = () => {
 
   // create state to hold saved bookId values
   const [savedBookIds, setSavedBookIds] = useState(getSavedBookIds());
-
-  const [save_book] = useMutation(SAVE_BOOK)
+  const [saveBook] = useMutation(SAVE_BOOK)
 
   // set up useEffect hook to save `savedBookIds` list to localStorage on component unmount
   // learn more here: https://reactjs.org/docs/hooks-effect.html#effects-with-cleanup
@@ -41,6 +38,7 @@ const SearchBooks = () => {
       }
 
       const { items } = await response.json();
+   
 
       const bookData = items.map((book) => ({
         bookId: book.id,
@@ -49,7 +47,7 @@ const SearchBooks = () => {
         description: book.volumeInfo.description,
         image: book.volumeInfo.imageLinks?.thumbnail || '',
       }));
-
+     
       setSearchedBooks(bookData);
       setSearchInput('');
     } catch (err) {
@@ -60,30 +58,31 @@ const SearchBooks = () => {
   // create function to handle saving a book to our database
   const handleSaveBook = async (bookId) => {
     // find the book in `searchedBooks` state by the matching id
-    const bookToSave = searchedBooks.find((book) => book.bookId === bookId);
+    const bookToSave = searchedBooks.find((book) => book.bookId === bookId)
+ 
 
     // get token
     const token = Auth.loggedIn() ? Auth.getToken() : null;
-    const { data: { _id } } = Auth.getProfile()
-    console.log(_id)
-    
- 
-   
+
     if (!token) {
       return false;
     }
 
     try {
-      const response = await save_book({
+     
+      const response = await saveBook({
         variables: {
-          _id: _id,
           book: bookToSave
         }
-      })
+      });
+    
+
+      if (!response.data.saveBook) {
+        throw new Error('something went wrong!');
+      }
 
       // if book successfully saves to user's account, save book id to state
       setSavedBookIds([...savedBookIds, bookToSave.bookId]);
-       saveBookIds(savedBookIds)
     } catch (err) {
       console.error(err);
     }

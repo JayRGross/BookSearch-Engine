@@ -1,55 +1,67 @@
-const { AuthenticationError } = require('apollo-server-core')
-const { User } = require('../models')
+const {AuthenticationError} = require('apollo-server-express');
+const {User} = require('../models');
+const jwt = require('jsonwebtoken');
+const {signToken, secret, expiration } = require('../utils/auth')
 
-const { signToken } = require('../utils/auth') 
-
-const resolvers = {
-    Query: {
-        me: async (parent, {_id}) => {
-            return await User.findById({_id})
-        }
+const resolvers ={
+  Query:{
+    me: async (parents, args, context, info) => {
+      if(!context.auth_user) {
+        return null
+      }
+      const foundUser = await User.findOne({_id: context.auth_user._id})
+      return foundUser
     },
-
-    Mutation: {
-        addUser: async (parent, {username, email, password}) => {
-            const user = User.create({username, email, password})
-            const token = signToken(user)
-            
-            return { token, user }
-        },
-        login: async (parents, {email, password}) => {
-            const user = await User.findOne({ email })
-
-            if(!user){ 
-                throw new AuthenticationError('No profile with this email found!')
-            } else {
-                
-                const passwordInput = await user.isCorrectPassword(password)
-                if (!passwordInput){
-                    throw new AuthenticationError('Incorrect Password!')
-                } else {
-                    const token = signToken(user)
-                    return {token, user}
-                }
-            }
-        },
-        saveBook: async (parents, {_id, book}) => {
-            const updatedUser = User.findByIdAndUpdate(_id,
-                {
-                    $push: {
-                        savedBooks: book
-                    }
-                })
-                return updatedUser
-        },
-        removeBook: async (parent, { _id, bookId }) => {
-            const updatedUser = await User.findByIdAndUpdate(
-                _id,
-                { $pull: { savedBooks: { _id: bookId } } }
-            )
-            return updatedUser
-        }
+    
+  },
+  Mutation: {
+    login : async (parents, {email, password}) =>{
+      const user = await User.findOne({email})
+      if(!user) {
+        throw new AuthenticationError('No user with this email found')
+      }
+      const correctPw = await user.isCorrectPassword(password)
+      if(!correctPw) {
+        throw new AuthenticationError('Incorrect password')
+      }
+      const token = signToken(user);
+      return {token, user}
+    },
+    addUser : async (parents ,{username, email, password}) =>{
+      const user = await User.create({username, email, password})
+      if(!user) {
+        throw new AuthenticationError('Cant create User')
+      }
+      const token = signToken(user);
+      return {token, user}
+    },
+    saveBook : async (parents, {book}, context) =>{
+      if(!context.auth_user) {
+        return null
+      }
+    
+      const updatedUserWithSavedBooks = await User.findOneAndUpdate(
+        
+        {_id: context.auth_user._id},
+        {$push :{savedBooks : book}},
+        {new: true}
+      );
+   
+      return updatedUserWithSavedBooks
+      
+    },
+    removeBook : async (parents, {bookId}, context) =>{
+      if(!context.auth_user) {
+        return null
+      }
+      
+      const updatedUserwithRemovedBook = await User.findOneAndUpdate(
+        {_id :context.auth_user._id},
+        {$pull :{savedBooks : {bookId}}},
+        {new: true}
+      );
+      return updatedUserwithRemovedBook
     }
+  }
 }
-
-module.exports = resolvers
+module.exports = resolvers;
