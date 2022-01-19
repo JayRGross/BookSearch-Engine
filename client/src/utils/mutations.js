@@ -21,6 +21,7 @@ export const ADD_USER = gql `
         _id
         username
         email
+
       }
     }
   }
@@ -47,8 +48,11 @@ export const REMOVE_BOOK = gql `
         image
         link
         title
+
         
       }
     }
   }
+
+
 `
